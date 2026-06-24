@@ -24,6 +24,10 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Check migration ownership guard
+        run: |
+          python scripts/check_migration_guards.py
+
       - name: Test dashboard issue ingestion
         run: |
           python -m unittest discover -s dashboard/tests -v
