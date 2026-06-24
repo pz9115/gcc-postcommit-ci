@@ -19,6 +19,9 @@ on:
         description: 'Bisection Issue Number (Optional)'
         required: false
 
+env:
+  POSTCOMMIT_REPOSITORY: ${{ github.repository }}
+
 jobs:
   manually-triggered-workflow-dispatch:
     uses: ./.github/workflows/run-frequent.yaml
@@ -52,7 +55,7 @@ jobs:
         id: baseline-hash
         run: |
           cd riscv-gnu-toolchain
-          python ./scripts/get_staging_hash.py -token ${{ secrets.GITHUB_TOKEN }} -repo patrick-rivos/gcc-postcommit-ci
+          python ./scripts/get_staging_hash.py -token ${{ secrets.GITHUB_TOKEN }} -repo "${POSTCOMMIT_REPOSITORY}"
           BASELINE_HASH=$(cat issue_hash.txt)
           echo "baseline_hash=$BASELINE_HASH" >> $GITHUB_OUTPUT
 
