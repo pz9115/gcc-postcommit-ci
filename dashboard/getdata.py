@@ -1,7 +1,7 @@
 import argparse
 import contextlib
-import shutil
 import os
+import shutil
 from typing import Dict, List, Set
 from zipfile import ZipFile
 import json
@@ -12,6 +12,11 @@ from compare_testsuite_log import (
     parse_testsuite_failures,
 )
 from download_artifact import search_for_artifact, download_artifact, extract_artifact
+
+
+DEFAULT_POSTCOMMIT_REPOSITORY = os.environ.get(
+    "POSTCOMMIT_REPOSITORY", "riseproject-dev/gcc-postcommit-ci"
+)
 
 
 def parse_arguments():
@@ -27,6 +32,12 @@ def parse_arguments():
         "-bootstrap",
         action="store_true",
         help="Build the current_logs from scratch. Takes a long time.",
+    )
+    parser.add_argument(
+        "-repo",
+        default=DEFAULT_POSTCOMMIT_REPOSITORY,
+        type=str,
+        help="GitHub repository to read dashboard issues and artifacts from",
     )
     return parser.parse_args()
 
@@ -62,7 +73,6 @@ def download_summaries(artifact_name: str, token: str, repo: str):
         "rv64_zvl_lmul2_",
         "rv64_zvl_",
         "coord_",
-        "release_14_",
         "release_15_",
         "release_16_",
         "binutils_",
@@ -224,8 +234,7 @@ def main():
             for file in data_files:
                 os.remove(file)
         existing_hashes: Set[str] = set()
-        download_logs(args.token, "patrick-rivos/riscv-gnu-toolchain", existing_hashes)
-        download_logs(args.token, "patrick-rivos/gcc-postcommit-ci", existing_hashes)
+        download_logs(args.token, args.repo, existing_hashes)
         hashes = sorted(os.listdir("testsuite_runs"))
         for file in data_files:
             with open(file, "w") as csv:
@@ -234,7 +243,7 @@ def main():
                 )
     else:
         existing_hashes = set(os.listdir("testsuite_runs"))
-        download_logs(args.token, "patrick-rivos/gcc-postcommit-ci", existing_hashes)
+        download_logs(args.token, args.repo, existing_hashes)
         new_hashes = sorted(set(os.listdir("testsuite_runs")) - existing_hashes)
         hashes = new_hashes
 

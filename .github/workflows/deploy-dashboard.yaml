@@ -9,6 +9,9 @@ on:
     - cron: 0 0,8,16 * * *
   workflow_dispatch:
 
+env:
+  POSTCOMMIT_REPOSITORY: ${{ github.repository }}
+
 # Serialize dashboard deployments on the same ref to reduce auto-commit push races.
 # Dashboard-only auto-commits are ignored by the push trigger below, so they do not
 # immediately retrigger this workflow.
@@ -69,7 +72,7 @@ jobs:
         run: |
           pip install pygithub requests
           cd dashboard
-          python getdata.py -token ${{ secrets.GITHUB_TOKEN }}
+          python getdata.py -token ${{ secrets.GITHUB_TOKEN }} -repo "${POSTCOMMIT_REPOSITORY}"
 
       - name: Build site
         run: |
