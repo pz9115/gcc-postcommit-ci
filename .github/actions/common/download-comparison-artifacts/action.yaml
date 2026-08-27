@@ -54,7 +54,7 @@ runs:
 
 
     - name: Download binary from another workflow
-      if: ${{ !cancelled() && steps.report-download.outputs.report_download == 'falure' && steps.same-workflow-binary.outcome == 'failure' }}
+      if: ${{ !cancelled() && steps.report-download.outputs.report_download == 'failure' && steps.same-workflow-binary.outcome == 'failure' }}
       shell: bash
       run: |
         cd riscv-gnu-toolchain

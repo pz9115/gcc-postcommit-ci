@@ -26,8 +26,6 @@ on:
         required: false
         type: string
   workflow_dispatch:
-    branches:
-      - main
     inputs:
       gcchash:
         description: 'GCC Hash'
@@ -41,18 +39,8 @@ on:
       prefix:
         required: false
         description: 'Prefix (Optional)'
-        type: choice
+        type: string
         default: ""
-        options:
-          - ""
-          - "binutils_"
-          - "checking_"
-          - "coord_"
-          - "release_15_"
-          - "release_16_"
-          - "rv32_zvl_"
-          - "rv64_zvl_"
-          - "zve_"
       gcc_branch:
         description: 'GCC branch'
         default: 'master'
@@ -78,7 +66,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment: production
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Check name
         id: check-issue-name
@@ -92,21 +80,22 @@ jobs:
       - name: Check duplicate issue
         id: check-duplicate-issue
         if: ${{ github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ISSUE_NAME='${{ inputs.issue_hash_prefix }} ${{ inputs.gcchash }}'
-          curl -L \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/${POSTCOMMIT_REPOSITORY}/issues \
-            -o issues.txt
-          FOUND_ISSUE=$(cat issues.txt | jq "map(select(.title == \"$ISSUE_NAME\"))" | tr '\n' ' ' | tr -d [:space:])
-          # if no issue of that name is found, jq returns '[]'
-          echo "found_issue=$FOUND_ISSUE" >> $GITHUB_OUTPUT
+          gh api --paginate \
+            "repos/${POSTCOMMIT_REPOSITORY}/issues?state=open&per_page=100" \
+            --jq '.[].title' > issue_titles.txt
+          if grep -Fqx -- "$ISSUE_NAME" issue_titles.txt; then
+            echo "found_issue=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found_issue=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check early exit
         id: early-exit
-        if: ${{ steps.check-issue-name.outputs.bad_name == 'true' || (steps.check-duplicate-issue.outcome != 'skipped' && steps.check-duplicate-issue.outputs.found_issue != '[]') }}
+        if: ${{ steps.check-issue-name.outputs.bad_name == 'true' || steps.check-duplicate-issue.outputs.found_issue == 'true' }}
         run: |
           echo "early_exit=true" >> $GITHUB_OUTPUT
 
@@ -344,6 +333,8 @@ jobs:
     needs: [check-early-exit, compare-artifacts]
     runs-on: ubuntu-24.04
     permissions:
+      actions: read
+      contents: read
       issues: write
     defaults:
       run:
@@ -410,7 +401,9 @@ jobs:
           IFS=',' read -r -a labels <<< $ISSUE_LABELS
           for label in "${labels[@]}"
           do
-            if [[ "$label" == "build-failure" ]] || [[ "$label" == "testsuite-failure" ]];
+            if [[ "$label" == "build-failure" ]] || \
+               [[ "$label" == "testsuite-failure" ]] || \
+               [[ "$label" == "invalid" ]];
             then
               echo "valid_baseline=false" >> $GITHUB_OUTPUT
               break
@@ -618,7 +611,7 @@ jobs:
 
       # Adds comment which links issue to PR
       - name: Link Staging PR
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ github.workflow == 'Staging' && github.event.pull_request }}
         with:
           script: |
@@ -651,7 +644,7 @@ jobs:
           fi
 
       - name: Add all the labels to New Issue
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ !cancelled() && steps.labels-upload-setup.outputs.labels_created == 'true' }}
         with:
           script: |
@@ -669,6 +662,8 @@ jobs:
   regenerate-issues:
     runs-on: ubuntu-24.04
     permissions:
+      actions: read
+      contents: read
       issues: write
     defaults:
       run:
