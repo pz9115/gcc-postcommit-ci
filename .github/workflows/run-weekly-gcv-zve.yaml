@@ -17,6 +17,10 @@ on:
         required: false
         type: string
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   init-submodules:
     uses: ./.github/workflows/init-submodules.yaml

@@ -33,6 +33,10 @@ on:
         description: 'Bisection Issue Number (Optional)'
         required: false
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   init-submodules:
     uses: ./.github/workflows/init-submodules.yaml

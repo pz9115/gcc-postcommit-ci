@@ -17,6 +17,10 @@ on:
         required: false
         type: string
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   # init-submodules sees "binutils_" and lies to us, giving us the binutils hash instead of the gcc hash.
   # This is intended since it would be a heavy lift to make everything aware of multiple hashes.

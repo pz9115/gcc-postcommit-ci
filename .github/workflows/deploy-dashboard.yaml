@@ -21,6 +21,8 @@ concurrency:
 
 jobs:
   build-deploy-site:
+    # Forks can preview manually; automatic data commits belong to RISE.
+    if: ${{ github.repository == 'riseproject-dev/gcc-postcommit-ci' || github.event_name == 'workflow_dispatch' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

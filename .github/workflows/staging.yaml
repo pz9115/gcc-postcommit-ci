@@ -36,7 +36,10 @@ jobs:
   get-hash:
     runs-on: ubuntu-24.04
     environment: production
-    if: ${{ inputs.gcchash == '' }}
+    if: ${{ inputs.gcchash == '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
 

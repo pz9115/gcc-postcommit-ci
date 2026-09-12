@@ -28,6 +28,10 @@ on:
         required: false
         type: string
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-24.04
@@ -225,7 +229,7 @@ jobs:
           mkdir build
           cd build
           TARGET_TUPLE=($(echo ${{ inputs.target }} | tr "-" "\n"))
-          ../../configure-scripts/${TARGET_TUPLE[0]}-${TARGET_TUPLE[1]}
+          ../../configure-scripts/${{ inputs.prefix }}${TARGET_TUPLE[0]}-${TARGET_TUPLE[1]}
           sed -i "s/ --user / --user --break-system-packages /g" Makefile
 
       - name: Build
