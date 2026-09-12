@@ -1,4 +1,6 @@
+import os
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -96,6 +98,82 @@ class DashboardIssueTests(unittest.TestCase):
                 "riseproject-dev/gcc-postcommit-ci",
             )
         )
+
+    @mock.patch("getdata.search_for_artifact", return_value="123")
+    @mock.patch("getdata.download_artifact")
+    def test_artifact_expiring_during_download_is_skipped(self, download, _search):
+        response = getdata.requests.Response()
+        response.status_code = 410
+        download.side_effect = getdata.requests.HTTPError(response=response)
+        self.assertIsNone(
+            getdata.download_summaries(
+                f"{HASH_1}-current-logs", "token", "riseproject-dev/gcc-postcommit-ci"
+            )
+        )
+
+    @mock.patch("getdata.search_for_artifact", return_value="123")
+    @mock.patch("getdata.download_artifact")
+    def test_other_download_errors_are_not_hidden(self, download, _search):
+        for status in (403, 404, 500):
+            with self.subTest(status=status):
+                response = getdata.requests.Response()
+                response.status_code = status
+                download.side_effect = getdata.requests.HTTPError(response=response)
+                with self.assertRaises(getdata.requests.HTTPError):
+                    getdata.download_summaries(
+                        f"{HASH_1}-current-logs",
+                        "token",
+                        "riseproject-dev/gcc-postcommit-ci",
+                    )
+
+
+class DashboardBootstrapTests(unittest.TestCase):
+    def setUp(self):
+        previous_directory = os.getcwd()
+        directory = tempfile.TemporaryDirectory(prefix="rise-dashboard-test-")
+        self.addCleanup(directory.cleanup)
+        self.addCleanup(os.chdir, previous_directory)
+        os.chdir(directory.name)
+
+    def run_empty_ingestion(self, bootstrap=False):
+        args = types.SimpleNamespace(
+            bootstrap=bootstrap,
+            token="token",
+            repo="riseproject-dev/gcc-postcommit-ci",
+        )
+        with (
+            mock.patch("getdata.parse_arguments", return_value=args),
+            mock.patch("getdata.get_issue_hashes", return_value=[]),
+            mock.patch("getdata.os.popen"),
+        ):
+            getdata.main()
+
+    def assert_empty_dashboard(self):
+        self.assertTrue(Path("testsuite_runs").is_dir())
+        for name in getdata.DATA_FILES:
+            self.assertEqual(Path(name).read_text(), getdata.CSV_HEADER)
+
+    def test_empty_repository_creates_directories_and_csv_headers(self):
+        self.run_empty_ingestion()
+        self.assert_empty_dashboard()
+
+    def test_empty_repository_bootstrap_creates_csv_headers(self):
+        self.run_empty_ingestion(bootstrap=True)
+        self.assert_empty_dashboard()
+
+    def test_bootstrap_resets_each_csv_even_when_one_is_missing(self):
+        for name in getdata.DATA_FILES[1:]:
+            Path(name).write_text("old rows\n")
+        self.run_empty_ingestion(bootstrap=True)
+        self.assert_empty_dashboard()
+
+    def test_normal_run_preserves_existing_csv_data(self):
+        retained_data = getdata.CSV_HEADER + "retained row\n"
+        for name in getdata.DATA_FILES:
+            Path(name).write_text(retained_data)
+        self.run_empty_ingestion()
+        for name in getdata.DATA_FILES:
+            self.assertEqual(Path(name).read_text(), retained_data)
 
 
 if __name__ == "__main__":

@@ -93,10 +93,19 @@ The dashboard ingests only the strict trunk and weekly status title formats
 declared in `dashboard/getdata.py`; coordination, release, binutils, ordinary,
 and malformed issues are excluded. Missing or expired artifacts are skipped and
 reported in the deployment log.
-For a clean rebuild, manually dispatch `Deploy-Dashboard` with `bootstrap=true`
+To recover a failed deployment, manually dispatch `Deploy-Dashboard` on `main`
 after at least one full RISE post-commit run has produced retained artifacts.
-Verify the generated CSV timestamps and all Pages links before relying on the
-graph as a service-health signal.
+Normal ingestion preserves existing CSV rows and downloaded logs. The workflow
+does not have a `bootstrap` input. The local `getdata.py -bootstrap` option
+deletes existing logs and CSV files and can recover only retained artifacts;
+use it only in a separate checkout after backing up the historical data.
+Verify the generated CSV timestamps and all Pages links after deployment.
+
+The dashboard currently caches by GCC hash, not by workload. When trunk and
+weekly jobs use the same hash, the first matching artifact is ingested and later
+workload results can be omitted. Use the status issues and retained artifacts
+to check workload coverage and baseline health; the charts do not establish
+that every workload completed.
 
 The dashboard job persists generated data by committing to `main`. The RISE
 ruleset must either grant the GitHub Actions app a narrowly reviewed bypass or

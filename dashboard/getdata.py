@@ -17,6 +17,16 @@ from download_artifact import search_for_artifact, download_artifact, extract_ar
 DEFAULT_POSTCOMMIT_REPOSITORY = os.environ.get(
     "POSTCOMMIT_REPOSITORY", "riseproject-dev/gcc-postcommit-ci"
 )
+DATA_FILES = (
+    "linux.csv",
+    "newlib.csv",
+    "filtered_linux.csv",
+    "filtered_newlib.csv",
+)
+CSV_HEADER = (
+    "gcc_hash,hash_timestamp,libc-libname-tool,libc,target,tool,"
+    "unique_fails,total_fails\n"
+)
 DASHBOARD_STATUS_TITLES = (
     "Testsuite Status",
     "Testsuite zve Status",
@@ -129,7 +139,17 @@ def download_summaries(artifact_name: str, token: str, repo: str):
     ):
         # Ignore coordination/release/binutils runs
         return None
-    artifact_path = download_artifact(artifact_name, artifact_id, token, repo, "temp")
+    try:
+        artifact_path = download_artifact(
+            artifact_name, artifact_id, token, repo, "temp"
+        )
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 410:
+            print(
+                f"Dashboard artifact {artifact_name} expired during download; skipping"
+            )
+            return None
+        raise
     return artifact_path
 
 
@@ -258,33 +278,21 @@ def aggregate_logs(logs_dir: str, gcc_hash: str):
 def main():
     args = parse_arguments()
 
-    hashes = []
-
     if args.bootstrap:
         shutil.rmtree("./testsuite_runs", ignore_errors=True)
-        data_files = [
-            "linux.csv",
-            "newlib.csv",
-            "filtered_linux.csv",
-            "filtered_newlib.csv",
-        ]
-
-        with contextlib.suppress(FileNotFoundError):
-            for file in data_files:
+        for file in DATA_FILES:
+            with contextlib.suppress(FileNotFoundError):
                 os.remove(file)
-        existing_hashes: Set[str] = set()
-        download_logs(args.token, args.repo, existing_hashes)
-        hashes = sorted(os.listdir("testsuite_runs"))
-        for file in data_files:
+
+    os.makedirs("testsuite_runs", exist_ok=True)
+    for file in DATA_FILES:
+        if not os.path.exists(file) or os.path.getsize(file) == 0:
             with open(file, "w") as csv:
-                csv.write(
-                    "gcc_hash,hash_timestamp,libc-libname-tool,libc,target,tool,unique_fails,total_fails\n"
-                )
-    else:
-        existing_hashes = set(os.listdir("testsuite_runs"))
-        download_logs(args.token, args.repo, existing_hashes)
-        new_hashes = sorted(set(os.listdir("testsuite_runs")) - existing_hashes)
-        hashes = new_hashes
+                csv.write(CSV_HEADER)
+
+    existing_hashes = set(os.listdir("testsuite_runs"))
+    download_logs(args.token, args.repo, existing_hashes)
+    hashes = sorted(set(os.listdir("testsuite_runs")) - existing_hashes)
 
     print(hashes)
 

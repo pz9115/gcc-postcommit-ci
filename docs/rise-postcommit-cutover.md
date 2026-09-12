@@ -72,12 +72,19 @@ non-RISE repository.
    change. The live dashboard continuously adds generated-data commits; replay
    the migration commits on top of that current head and never force-push or
    replace the dashboard history.
+   If the PR branch has already been published, merge the current RISE `main`
+   into it and resolve conflicts in generated pages using the RISE snapshot.
+   Preserve the source changes and both branches' existing commits.
 3. Merge this repository with the updated submodule gitlink.
 4. Run one full post-commit workflow and dashboard deployment.
 5. Record the first valid baseline issue and artifact run.
 6. Merge pre-commit CI only after the baseline exists.
 7. Disable legacy schedules after RISE workflows have produced valid artifacts,
    issues, and dashboard pages.
+
+Automatic dashboard deployments run only in the RISE repository. Forks can
+still dispatch `Deploy-Dashboard` manually for preview, but scheduled runs and
+pushes no longer add generated-page commits to a fork's open PR branch.
 
 Before enabling production schedules, update the repository description and
 homepage, make the RISE repository the local `origin`, verify the RISE
